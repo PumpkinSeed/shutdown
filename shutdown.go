@@ -15,7 +15,7 @@ type Stop interface {
 type Handler struct {
 	log Log
 	connections *sync.Map
-	hc          *HC
+	//hc          *HC
 }
 
 type container struct {
@@ -23,11 +23,11 @@ type container struct {
 	conn  Stop
 }
 
-func NewHandler(l Log, hc *HC) *Handler {
+func NewHandler(l Log) *Handler {
 	return &Handler{
 		log:      l,
 		connections: &sync.Map{},
-		hc:          hc,
+		// hc:          hc,
 	}
 }
 
@@ -40,7 +40,7 @@ func (h *Handler) Add(label string, seq int, stop Stop) {
 }
 
 func (h *Handler) Stop() error {
-	h.hc.status = statusNotServing
+	// h.hc.status = statusNotServing
 
 	var err error
 	var keys []int
