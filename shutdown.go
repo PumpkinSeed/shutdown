@@ -15,7 +15,8 @@ type Stop interface {
 type Handler struct {
 	log Log
 	connections *sync.Map
-	//hc          *HC
+
+	Healthcheck          *HC
 }
 
 type container struct {
@@ -27,15 +28,19 @@ func NewHandler(l Log) *Handler {
 	return &Handler{
 		log:      l,
 		connections: &sync.Map{},
-		// hc:          hc,
 	}
 }
 
-func (h *Handler) Add(label string, seq int, stop Stop) {
+func (h *Handler) SetupHealthcheck(hc *HC) {
+	h.Healthcheck = hc
+}
+
+func (h *Handler) Add(label string, labelPos string, pos int, stop Stop) {
 	c := container{
 		label: label,
 		conn:  stop,
 	}
+	seq := h.GenerateSeq(labelPos, pos)
 	h.connections.Store(seq, c)
 }
 
@@ -82,7 +87,7 @@ func GracefulExit(handler *Handler, wg *sync.WaitGroup) {
 			select {
 			case sig := <-c:
 				handler.log.Infof("Got %s signal. Aborting...\n", sig)
-				handler.Stop()
+				handler.Stop() // @TODO unhandeled error
 				handler.log.Infof("Shutdown succesful.\n")
 				os.Exit(0)
 				return
