@@ -6,12 +6,14 @@ import (
 )
 
 const (
-	Before = iota
+	Init = iota
+	Before
 	After
 )
 
 const (
 	min = 1000000
+	mid = 5000000
 	max = 9999999
 )
 
@@ -20,6 +22,9 @@ func init() {
 }
 
 func (h *Handler) GenerateSeq(label string, pos int) int {
+	if pos == Init {
+		return randInt(mid, max)
+	}
 	var prev = min
 	var next = min+10000
 	var after = false
@@ -46,6 +51,9 @@ func (h *Handler) GenerateSeq(label string, pos int) int {
 	}
 	if next > max {
 		next = max
+	}
+	if prev > next {
+		next = prev + 1000
 	}
 	return randInt(prev, next)
 }

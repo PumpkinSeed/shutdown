@@ -75,6 +75,25 @@ func (h *Handler) Stop() error {
 	return err
 }
 
+func (h *Handler) debug() map[string]int {
+	var result = make(map[string]int)
+	h.connections.Range(func(seq, containerEntity interface{}) bool {
+		var seqv int
+		var containerEntityv container
+		var ok bool
+		if seqv, ok = seq.(int); !ok {
+			return true
+		}
+		if containerEntityv, ok = containerEntity.(container); !ok {
+			return true
+		}
+		result[containerEntityv.label] = seqv
+		return true
+	})
+
+	return result
+}
+
 func GracefulExit(handler *Handler, wg *sync.WaitGroup) {
 	c := make(chan os.Signal)
 	signal.Notify(c, os.Interrupt)
