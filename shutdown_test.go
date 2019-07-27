@@ -6,7 +6,7 @@ import (
 )
 
 func TestShutdown(t *testing.T) {
-	handler := NewHandler(&blankLog{})
+	handler := NewHandler(&testLog{t})
 
 	service1 := serviceWithStop{}
 	service2 := serviceWithStop{}
@@ -32,5 +32,15 @@ func TestShutdown(t *testing.T) {
 	}
 	if result["service1"] < mid {
 		t.Errorf("service1 should be bigger than %d", mid)
+	}
+
+	err := handler.Stop()
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = service3.Ping()
+	if err != errStoppedService {
+		t.Errorf("Error should be %v, instead of %v", errStoppedService, err)
 	}
 }
