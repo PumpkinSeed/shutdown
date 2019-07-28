@@ -2,6 +2,7 @@ package shutdown
 
 import (
 	"errors"
+	"log"
 	"testing"
 	"time"
 )
@@ -56,6 +57,7 @@ func (s *serviceWithStop) Stop() error {
 }
 
 func (s *serviceWithStop) Ping() error {
+	log.Print("ping happened")
 	if !s.serving {
 		return errStoppedService
 	}

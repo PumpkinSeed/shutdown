@@ -23,7 +23,7 @@ type HealthcheckConfig struct {
 	CheckInterval int `json:"check_interval"` // in millisecond
 }
 
-type HC struct {
+type Healthcheck struct {
 	status int32
 	log Log
 
@@ -34,7 +34,7 @@ type HC struct {
 type Ping func() error
 type Reconnect func() error
 
-type HCSi interface {
+type HealthcheckDescriptor interface {
 	Ping() error
 	Reconnect() error
 }
@@ -42,28 +42,28 @@ type HCSi interface {
 type serviceHealthcheck struct {
 	Name   string
 	status int32
-	i      HCSi
+	i      HealthcheckDescriptor
 }
 
-type Response struct {
-	ID        string          `json:"id"`
-	Type      string          `json:"type"`
-	StartedAt time.Time       `json:"started_at"`
-	Status    string          `json:"status"`
-	Health    map[string]bool `json:"health"`
-}
+//type Response struct {
+//	ID        string          `json:"id"`
+//	Type      string          `json:"type"`
+//	StartedAt time.Time       `json:"started_at"`
+//	Status    string          `json:"status"`
+//	Health    map[string]bool `json:"health"`
+//}
 
-func NewHC(config *HealthcheckConfig, resp *Response, l Log) *HC {
-	resp.Health = make(map[string]bool)
+func NewHC(config *HealthcheckConfig, l Log) *Healthcheck {
+	// resp.Health = make(map[string]bool)
 
-	return &HC{
+	return &Healthcheck{
 		log: l,
 		cfg:    config,
 		status: statusServing,
 	}
 }
 
-func (h *HC) Serve() {
+func (h *Healthcheck) Serve() {
 	h.Policy()
 
 	go func(log Log) {
@@ -98,7 +98,7 @@ func (h *HC) Serve() {
 	}(h.log)
 }
 
-func (h *HC) AddHCS(name string, hcs HCSi) {
+func (h *Healthcheck) Add(name string, hcs HealthcheckDescriptor) {
 	if err := hcs.Ping(); err != nil {
 		h.status = statusNotServing
 	}
@@ -109,7 +109,7 @@ func (h *HC) AddHCS(name string, hcs HCSi) {
 	})
 }
 
-func (h *HC) CheckHCS() bool {
+func (h *Healthcheck) CheckHCS() bool {
 	for _, hcs := range h.hcs {
 		if hcs.status == statusNotServing {
 			return false
@@ -118,7 +118,7 @@ func (h *HC) CheckHCS() bool {
 	return true
 }
 
-func (h *HC) Status() int32 {
+func (h *Healthcheck) Status() int32 {
 	// var s = map[int32]string{
 	// 	1: "serving",
 	// 	2: "not_serving",
@@ -128,7 +128,7 @@ func (h *HC) Status() int32 {
 	return h.status
 }
 
-func (h *HC) Policy() *HealthcheckConfig {
+func (h *Healthcheck) Policy() *HealthcheckConfig {
 	if h.cfg.RetryAmount == 0 {
 		h.cfg.RetryAmount = defaultRetryAmount
 	}
@@ -144,7 +144,7 @@ func (h *HC) Policy() *HealthcheckConfig {
 	return h.cfg
 }
 
-func (h *HC) retry(name string, hcs HCSi, log Log) error {
+func (h *Healthcheck) retry(name string, hcs HealthcheckDescriptor, log Log) error {
 	var i int
 	var retryErr error
 
@@ -166,4 +166,12 @@ func (h *HC) retry(name string, hcs HCSi, log Log) error {
 		os.Exit(1)
 	}
 	return nil
+}
+
+func DefaultHealthcheckConfig() *HealthcheckConfig {
+	return &HealthcheckConfig{
+		RetryAmount: defaultRetryAmount,
+		Interval: defaultInterval,
+		CheckInterval: defaultCheckInterval,
+	}
 }

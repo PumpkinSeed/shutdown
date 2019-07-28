@@ -8,34 +8,46 @@ import (
 	"syscall"
 )
 
-type Stop interface {
+type ServiceDescriptor interface {
 	Stop() error
+	Ping() error
+	Reconnect() error
 }
 
 type Handler struct {
-	log Log
+	log         Log
 	connections *sync.Map
 
-	Healthcheck          *HC
+	Healthcheck *Healthcheck
 }
 
 type container struct {
 	label string
-	conn  Stop
+	conn  ServiceDescriptor
 }
 
 func NewHandler(l Log) *Handler {
 	return &Handler{
-		log:      l,
+		log:         l,
 		connections: &sync.Map{},
 	}
 }
 
-func (h *Handler) SetupHealthcheck(hc *HC) {
+func (h *Handler) HealthcheckWithExistingConnections() {
+	h.Healthcheck = NewHC(DefaultHealthcheckConfig(), h.log)
+	h.connections.Range(func(_, connection interface{}) bool {
+		if connectionv, ok := connection.(container); ok {
+			h.Healthcheck.Add(connectionv.label, connectionv.conn)
+		}
+		return true
+	})
+}
+
+func (h *Handler) SetupHealthcheck(hc *Healthcheck) {
 	h.Healthcheck = hc
 }
 
-func (h *Handler) Add(label string, labelPos string, pos int, stop Stop) {
+func (h *Handler) Add(label string, labelPos string, pos int, stop ServiceDescriptor) {
 	c := container{
 		label: label,
 		conn:  stop,
