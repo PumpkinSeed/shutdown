@@ -51,6 +51,8 @@ handler := shutdown.NewHandler(&testLog{t})
 handler.Add("service1", "", shutdown.Init, &service1)
 handler.Add("service2", "service1", shutdown.Before, &service2)
 handler.Add("service3", "service2", shutdown.After, &service3)
+wg := &sync.WaitGroup{}
+shutdown.GracefuleExit(handler, wg)
 ```
 
 ### Important

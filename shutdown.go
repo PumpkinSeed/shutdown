@@ -11,7 +11,6 @@ import (
 type ServiceDescriptor interface {
 	Stop() error
 	Ping() error
-	// Reconnect() error
 }
 
 type Handler struct {
@@ -34,13 +33,14 @@ func NewHandler(l Log) *Handler {
 }
 
 func (h *Handler) HealthcheckWithExistingConnections() {
-	h.Healthcheck = NewHC(DefaultHealthcheckConfig(), h.log)
+	h.Healthcheck = NewHC(DefaultHealthcheckConfig())
 	h.connections.Range(func(_, connection interface{}) bool {
 		if connectionv, ok := connection.(container); ok {
 			h.Healthcheck.Add(connectionv.label, connectionv.conn)
 		}
 		return true
 	})
+	h.Healthcheck.Serve()
 }
 
 func (h *Handler) SetupHealthcheck(hc *Healthcheck) {
@@ -57,8 +57,6 @@ func (h *Handler) Add(label string, labelPos string, pos int, stop ServiceDescri
 }
 
 func (h *Handler) Stop() error {
-	// h.hc.status = statusNotServing
-
 	var err error
 	var keys []int
 	h.connections.Range(func(seq, _ interface{}) bool {

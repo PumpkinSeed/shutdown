@@ -1,6 +1,8 @@
 package shutdown
 
 import (
+	"errors"
+	"fmt"
 	"time"
 )
 
@@ -13,7 +15,6 @@ const (
 	defaultInterval      = 1000
 	defaultRetryAmount   = 100
 	defaultCheckInterval = 3000
-	discoveryName        = "discovery"
 )
 
 type HealthcheckConfig struct {
@@ -24,39 +25,25 @@ type HealthcheckConfig struct {
 
 type Healthcheck struct {
 	status int32
-	log Log
+	errorCaused string
 
 	cfg *HealthcheckConfig
 	hcs []*serviceHealthcheck
 }
 
 type Ping func() error
-type Reconnect func() error
 
 type HealthcheckDescriptor interface {
 	Ping() error
-	//Reconnect() error
 }
 
 type serviceHealthcheck struct {
-	Name   string
-	status int32
+	name   string
 	i      HealthcheckDescriptor
 }
 
-//type Response struct {
-//	ID        string          `json:"id"`
-//	Type      string          `json:"type"`
-//	StartedAt time.Time       `json:"started_at"`
-//	Status    string          `json:"status"`
-//	Health    map[string]bool `json:"health"`
-//}
-
-func NewHC(config *HealthcheckConfig, l Log) *Healthcheck {
-	// resp.Health = make(map[string]bool)
-
+func NewHC(config *HealthcheckConfig) *Healthcheck {
 	return &Healthcheck{
-		log: l,
 		cfg:    config,
 		status: StatusServing,
 	}
@@ -65,36 +52,26 @@ func NewHC(config *HealthcheckConfig, l Log) *Healthcheck {
 func (h *Healthcheck) Serve() {
 	h.Policy()
 
-	go func(log Log) {
+	go func() {
 		for {
-			// check all hcs
-			var errHCS = make(map[string]error)
+			var err error = nil
 			for _, hcs := range h.hcs {
-				err := hcs.i.Ping()
+				err = hcs.i.Ping()
 				if err != nil {
-					errHCS[hcs.Name] = err
-					log.Debugf("%s ping caused error", hcs.Name)
-					hcs.status = StatusNotServing
 					h.status = StatusNotServing
+					h.errorCaused = fmt.Sprintf("%s -> %s", hcs.name, err.Error())
 
-					// retry hcs
-					// err = h.retry(hcs.Name, hcs.i, log)
-				}
-				if err != nil {
-					errHCS[hcs.Name] = err
+					break
 				}
 			}
-
-			// if all healthy set Response
-			if len(errHCS) == 0 {
+			if err == nil {
 				h.status = StatusServing
-			} else {
-				h.status = StatusNotServing
+				h.errorCaused = ""
 			}
 
 			time.Sleep(2 * time.Second)
 		}
-	}(h.log)
+	}()
 }
 
 func (h *Healthcheck) Add(name string, hcs HealthcheckDescriptor) {
@@ -103,28 +80,16 @@ func (h *Healthcheck) Add(name string, hcs HealthcheckDescriptor) {
 	}
 
 	h.hcs = append(h.hcs, &serviceHealthcheck{
-		Name: name,
+		name: name,
 		i:    hcs,
 	})
 }
 
-func (h *Healthcheck) CheckHCS() bool {
-	for _, hcs := range h.hcs {
-		if hcs.status == StatusNotServing {
-			return false
-		}
+func (h *Healthcheck) Status() (int32, error) {
+	if h.errorCaused != "" {
+		return h.status, errors.New(h.errorCaused)
 	}
-	return true
-}
-
-func (h *Healthcheck) Status() int32 {
-	// var s = map[int32]string{
-	// 	1: "serving",
-	// 	2: "not_serving",
-	// }
-
-	// h.loggit.Debugf("Healthcheck happened, status: %s", s[h.status])
-	return h.status
+	return h.status, nil
 }
 
 func (h *Healthcheck) Policy() *HealthcheckConfig {
@@ -142,30 +107,6 @@ func (h *Healthcheck) Policy() *HealthcheckConfig {
 
 	return h.cfg
 }
-
-//func (h *Healthcheck) retry(name string, hcs HealthcheckDescriptor, log Log) error {
-//	var i int
-//	var retryErr error
-//
-//	for i = 0; i < h.cfg.RetryAmount; i++ {
-//		retryErr = hcs.Reconnect()
-//
-//		if retryErr == nil {
-//			log.Warnf("retry happened for %s with error: - %v -", name, retryErr)
-//			if h.CheckHCS() {
-//				h.status = StatusServing
-//			}
-//			break
-//		}
-//		log.Debugf("%s still unavailable", name)
-//		time.Sleep(time.Duration(h.cfg.Interval) * time.Millisecond)
-//	}
-//	if retryErr != nil {
-//		log.Errorf("%s still unavailable os.Exit(1)", name)
-//		os.Exit(1)
-//	}
-//	return nil
-//}
 
 func DefaultHealthcheckConfig() *HealthcheckConfig {
 	return &HealthcheckConfig{
