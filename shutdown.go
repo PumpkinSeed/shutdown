@@ -32,8 +32,11 @@ func NewHandler(l Log) *Handler {
 	}
 }
 
-func (h *Handler) HealthcheckWithExistingConnections() {
+func (h *Handler) InitHealthcheck() {
 	h.Healthcheck = NewHC(DefaultHealthcheckConfig())
+}
+
+func (h *Handler) HealthcheckWithExistingConnections() {
 	h.connections.Range(func(_, connection interface{}) bool {
 		if connectionv, ok := connection.(container); ok {
 			h.Healthcheck.Add(connectionv.label, connectionv.conn)
