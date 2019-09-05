@@ -1,13 +1,12 @@
 package shutdown
 
 import (
-	"os"
 	"time"
 )
 
 const (
-	statusServing    int32 = 1
-	statusNotServing int32 = 2
+	StatusServing    int32 = iota
+	StatusNotServing
 )
 
 const (
@@ -36,7 +35,7 @@ type Reconnect func() error
 
 type HealthcheckDescriptor interface {
 	Ping() error
-	Reconnect() error
+	//Reconnect() error
 }
 
 type serviceHealthcheck struct {
@@ -59,7 +58,7 @@ func NewHC(config *HealthcheckConfig, l Log) *Healthcheck {
 	return &Healthcheck{
 		log: l,
 		cfg:    config,
-		status: statusServing,
+		status: StatusServing,
 	}
 }
 
@@ -75,11 +74,11 @@ func (h *Healthcheck) Serve() {
 				if err != nil {
 					errHCS[hcs.Name] = err
 					log.Debugf("%s ping caused error", hcs.Name)
-					hcs.status = statusNotServing
-					h.status = statusNotServing
+					hcs.status = StatusNotServing
+					h.status = StatusNotServing
 
 					// retry hcs
-					err = h.retry(hcs.Name, hcs.i, log)
+					// err = h.retry(hcs.Name, hcs.i, log)
 				}
 				if err != nil {
 					errHCS[hcs.Name] = err
@@ -88,9 +87,9 @@ func (h *Healthcheck) Serve() {
 
 			// if all healthy set Response
 			if len(errHCS) == 0 {
-				h.status = statusServing
+				h.status = StatusServing
 			} else {
-				h.status = statusNotServing
+				h.status = StatusNotServing
 			}
 
 			time.Sleep(2 * time.Second)
@@ -100,7 +99,7 @@ func (h *Healthcheck) Serve() {
 
 func (h *Healthcheck) Add(name string, hcs HealthcheckDescriptor) {
 	if err := hcs.Ping(); err != nil {
-		h.status = statusNotServing
+		h.status = StatusNotServing
 	}
 
 	h.hcs = append(h.hcs, &serviceHealthcheck{
@@ -111,7 +110,7 @@ func (h *Healthcheck) Add(name string, hcs HealthcheckDescriptor) {
 
 func (h *Healthcheck) CheckHCS() bool {
 	for _, hcs := range h.hcs {
-		if hcs.status == statusNotServing {
+		if hcs.status == StatusNotServing {
 			return false
 		}
 	}
@@ -144,29 +143,29 @@ func (h *Healthcheck) Policy() *HealthcheckConfig {
 	return h.cfg
 }
 
-func (h *Healthcheck) retry(name string, hcs HealthcheckDescriptor, log Log) error {
-	var i int
-	var retryErr error
-
-	for i = 0; i < h.cfg.RetryAmount; i++ {
-		retryErr = hcs.Reconnect()
-
-		if retryErr == nil {
-			log.Warnf("retry happened for %s with error: - %v -", name, retryErr)
-			if h.CheckHCS() {
-				h.status = statusServing
-			}
-			break
-		}
-		log.Debugf("%s still unavailable", name)
-		time.Sleep(time.Duration(h.cfg.Interval) * time.Millisecond)
-	}
-	if retryErr != nil {
-		log.Errorf("%s still unavailable os.Exit(1)", name)
-		os.Exit(1)
-	}
-	return nil
-}
+//func (h *Healthcheck) retry(name string, hcs HealthcheckDescriptor, log Log) error {
+//	var i int
+//	var retryErr error
+//
+//	for i = 0; i < h.cfg.RetryAmount; i++ {
+//		retryErr = hcs.Reconnect()
+//
+//		if retryErr == nil {
+//			log.Warnf("retry happened for %s with error: - %v -", name, retryErr)
+//			if h.CheckHCS() {
+//				h.status = StatusServing
+//			}
+//			break
+//		}
+//		log.Debugf("%s still unavailable", name)
+//		time.Sleep(time.Duration(h.cfg.Interval) * time.Millisecond)
+//	}
+//	if retryErr != nil {
+//		log.Errorf("%s still unavailable os.Exit(1)", name)
+//		os.Exit(1)
+//	}
+//	return nil
+//}
 
 func DefaultHealthcheckConfig() *HealthcheckConfig {
 	return &HealthcheckConfig{

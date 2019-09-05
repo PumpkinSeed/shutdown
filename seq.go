@@ -23,39 +23,36 @@ func init() {
 
 func (h *Handler) GenerateSeq(label string, pos int) int {
 	if pos == Init {
-		return randInt(mid, max)
+		return randInt(mid, mid+1000)
 	}
+
 	var prev = min
-	var next = min+10000
+	var serviceSeq = min+10000
+	var next = max
 	var after = false
+	var finish = false
 	h.connections.Range(func(k, v interface{}) bool {
 		if c, ok := v.(container); ok {
-			if c.label == label {
-				prev = next
+			if finish {
+				return false
+			} else if c.label == label {
+				serviceSeq = k.(int)
+				after = true
+			} else if after {
 				next = k.(int)
-				if pos == Before || after == true {
-					return false
-				} else if pos == After {
-					after = true
-					return true
-				} else {
-					return false
-				}
+				finish = true
+			} else {
+				prev = k.(int)
 			}
+			return true
 		}
 		return true
 	})
-	if after == true {
-		prev = next
-		next = max
+	if pos == Before {
+		return randInt(prev, serviceSeq)
+	} else {
+		return randInt(serviceSeq, next)
 	}
-	if next > max {
-		next = max
-	}
-	if prev > next {
-		next = prev + 1000
-	}
-	return randInt(prev, next)
 }
 
 func randInt(min, max int) int {

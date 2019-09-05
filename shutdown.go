@@ -11,7 +11,7 @@ import (
 type ServiceDescriptor interface {
 	Stop() error
 	Ping() error
-	Reconnect() error
+	// Reconnect() error
 }
 
 type Handler struct {
@@ -104,6 +104,20 @@ func (h *Handler) debug() map[string]int {
 	})
 
 	return result
+}
+
+func (h *Handler) debugSeq(label string) int {
+	var seq int
+	h.connections.Range(func(k, v interface{}) bool {
+		if c, ok := v.(container); ok {
+			if c.label == label {
+				seq = k.(int)
+				return false
+			}
+		}
+		return true
+	})
+	return seq
 }
 
 func GracefulExit(handler *Handler, wg *sync.WaitGroup) {
